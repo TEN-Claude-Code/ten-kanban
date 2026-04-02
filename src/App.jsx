@@ -1,583 +1,141 @@
-import { useState, useMemo } from "react";
+import{useState,useEffect,useMemo,useCallback,useRef}from"react";
+const API="https://hiuclxudffbdtqtzlirc.supabase.co/functions/v1/kanban-api";
+const ACT="https://hiuclxudffbdtqtzlirc.supabase.co/functions/v1/kanban-action";
 
-// ─── Data ───────────────────────────────────────────────────────────
-const REMINDERS_RAW = [
-  { id: "BF8A03BF", title: "奥さまのTEN合同会社・業務執行社員追加を検討する（経費最適化の大きなレバー）", due: "2026-03-28T10:00:00", priority: "medium", tag: "経営" },
-  { id: "51D92FC4", title: "Cursorのバグbot 無料期間終了", due: "2026-04-02", priority: "none", tag: "ツール" },
-  { id: "EBD0F77A", title: "JAROのリーガルチェックを徹底する！", due: "2026-03-25T11:00:00", priority: "none", tag: "法務" },
-  { id: "EDFE2AAE", title: "識学マネジメント第一案", due: "2026-03-26T09:06:00", priority: "none", tag: "経営" },
-  { id: "5CDC9164", title: "非対話、機械可読", due: "2026-03-26T09:25:00", priority: "none", tag: "AI" },
-  { id: "F07DA4A3", title: "ecforceとLINE Claude Codeの可能性探る", due: "2026-03-26T10:20:00", priority: "none", tag: "開発" },
-  { id: "6EE260F1", title: "カスタマージャーニーベルトコンベア作って", due: "2026-03-26T10:54:00", priority: "none", tag: "CRM" },
-  { id: "3C58FE7A", title: "PDCA完全自動化 3ステップ", due: "2026-03-27T10:00:00", priority: "none", tag: "AI" },
-  { id: "800E5326", title: "LPの品質スコアチェック", due: "2026-03-27T10:18:00", priority: "none", tag: "LP" },
-  { id: "0DFCDEDE", title: "LPを品質スコア化して(100点評価)", due: "2026-03-27T10:18:00", priority: "none", tag: "LP" },
-  { id: "CD430838", title: "LINEソケット通信", due: "2026-03-27T10:39:00", priority: "none", tag: "開発" },
-  { id: "0FB4EFBF", title: "ガット張り替え", due: "2026-03-28T05:00:00", priority: "none", tag: "私用" },
-  { id: "47323833", title: "参考デザインを徹底的に言語化するプロンプト", due: "2026-03-28T05:00:00", priority: "none", tag: "LP" },
-  { id: "97360873", title: "送信元メールアドレス：ma@mudage-clinic.comの発行", due: "2026-03-30", priority: "none", tag: "インフラ" },
-  { id: "9E91B530", title: "[セーブ] 配当管理アプリ Phase2完了", due: "2026-04-01T10:00:00", priority: "medium", tag: "投資" },
-  { id: "39FFF725", title: "[セーブ] freee自動仕訳 - 自動登録ルール設定待ち", due: "2026-04-02T10:00:00", priority: "none", tag: "会計" },
-  // No due date items (backlog)
-  { id: "1613BD1A", title: "4月からの新体制で識学マネジメントを実行する", due: null, priority: "none", tag: "経営" },
-  { id: "F4433A31", title: "初回3本率最大化のフローチャート", due: null, priority: "none", tag: "CRM" },
-  { id: "671EA335", title: "矢野さんに納品フォルダを作ってもらう", due: null, priority: "none", tag: "スタッフ" },
-  { id: "48A82747", title: "小室さんにアニメーション設定を伝える", due: null, priority: "none", tag: "スタッフ" },
-  { id: "D6BBF8BF", title: "大豆抽出成分の抑毛効果文献（鼻から下）", due: null, priority: "none", tag: "薬機法" },
-  { id: "978FEDE8", title: "Notebook LMからレギュレーションシート作成", due: null, priority: "none", tag: "法務" },
-  { id: "3F8601F9", title: "LINEリッチメニュー 定期再開ボタン", due: null, priority: "none", tag: "CRM" },
-  { id: "2C598756", title: "保有銘柄の配当権利月を表形式で作成", due: null, priority: "none", tag: "投資" },
-  { id: "4A7127ED", title: "未処理明細→AI勘定科目判定→freee登録", due: null, priority: "none", tag: "会計" },
-  { id: "7DDAAD43", title: "ecforce LPテンプレート自作ツール", due: null, priority: "none", tag: "LP" },
-  { id: "408A4118", title: "Supabaseに入れるデータを増やす", due: null, priority: "none", tag: "AI" },
-  { id: "24B825BF", title: "CVR高いLPを作るために必要な知識の要件", due: null, priority: "none", tag: "LP" },
-  { id: "64CC3C0A", title: "三上さん実行計画を作って", due: null, priority: "none", tag: "スタッフ" },
-  { id: "804D6D12", title: "JARO回答文の修正反映チェック(LP+記事LP)", due: null, priority: "none", tag: "法務" },
-  { id: "74ECCD43", title: "全トークンを今すぐローテーション（セキュリティ）", due: null, priority: "none", tag: "インフラ" },
-  { id: "627CA4AC", title: "D2C定期LP高ROAS自動PDCAループシステム", due: null, priority: "none", tag: "LP" },
-  { id: "056736F9", title: "ゴールデンパス カスタマージャーニーマップ", due: null, priority: "none", tag: "CRM" },
-  { id: "D7E3B040", title: "LPデザイン依頼の要件定義（これじゃない感ゼロ）", due: null, priority: "none", tag: "LP" },
-  { id: "5733DCF6", title: "SlackでLINE問い合わせ確認+ecforce連携返信", due: null, priority: "none", tag: "CRM" },
-  { id: "90AF8D54", title: "Supabase→課題発見→イシュー→CC実行の改善ループ", due: null, priority: "none", tag: "AI" },
-  { id: "5B496509", title: "Mac/iPhone同期コピペアプリ", due: null, priority: "none", tag: "ツール" },
-  { id: "C201FB4E", title: "ファイル管理自動化（フォルダ名/ファイル名ルール）", due: null, priority: "none", tag: "AI" },
-  { id: "42489BD3", title: "LP 270円×3パターン 月20回の試行速度戦略", due: null, priority: "none", tag: "LP" },
-  { id: "6E7F9D99", title: "3回目継続者限定 12ヶ月サブスクオファー損益分析", due: null, priority: "none", tag: "CRM" },
-  { id: "B2D92DAE", title: "Human on the Loop（モニタリング体制）", due: null, priority: "none", tag: "AI" },
-  { id: "72177B07", title: "CC vs 人間 パフォーマンス棚卸し", due: null, priority: "none", tag: "AI" },
-  { id: "AAECE3EF", title: "ecforceチャットを自前で作れるか調査", due: null, priority: "none", tag: "開発" },
-  { id: "AFB9DB0D", title: "リーガルチェックQ&AをSupabaseへ自動登録", due: null, priority: "none", tag: "法務" },
-  { id: "B5B50450", title: "GTMUPセルページの漏れ分とテスト用LP分", due: null, priority: "none", tag: "LP" },
+const STAGES=[
+  {key:"triage",label:"Triage",color:"#eb5757",nd:true,dropTarget:false},
+  {key:"backlog",label:"Backlog",color:"#93959f",nd:true,dropTarget:false},
+  {key:"todo",label:"Todo",color:"#f2994a",dropTarget:true},
+  {key:"ready",label:"Ready",color:"#0d9373",dropTarget:false},
+  {key:"done",label:"Done",color:"#0d9373",dropTarget:false},
+  {key:"canceled",label:"Canceled",color:"#94a3b8",dropTarget:true},
 ];
+function classify(i){const ls=i.labels||[];if(ls.includes("canceled"))return"canceled";if(i.state==="closed")return"done";if(ls.includes("needs-revision"))return"triage";if(ls.includes("ready")&&ls.some(l=>["cc","codex","cc-local"].includes(l)))return"ready";if(ls.some(l=>["cc","codex","cc-local"].includes(l)))return"todo";if(ls.some(l=>["lp-optimizer","dividend-app","ops","automation","infrastructure","enhancement"].includes(l)))return"backlog";return"triage"}
+function daysSince(d){return d?Math.floor((new Date()-new Date(d))/864e5):0}
+const EXEC={opus:{key:"opus",label:"cc-work (Opus)",color:"#9c6ade",bg:"#f3f0ff",border:"#c4b5fd",icon:"\u25c6",desc:"複雑な設計・推論 [cc-work]",action:"cc"},sonnet:{key:"sonnet",label:"cc-work (Sonnet)",color:"#5e6ad2",bg:"#eff0ff",border:"#c7d2fe",icon:"\u25c7",desc:"標準実装 [cc-work]",action:"cc"},codex:{key:"codex",label:"Codex",color:"#0d9373",bg:"#ecfdf5",border:"#a7f3d0",icon:"\u25a1",desc:"機械的作業 [Codex]",action:"codex"}};
+function recommendExec(item){const t=(item.title||"").toLowerCase();const ls=item.labels||[];if(ls.includes("size:L")||["epic","phase","architect","設計","リファクタ","移行","pipeline","system","構築","統合テスト","e2e","セットアップ"].some(k=>t.includes(k)))return EXEC.opus;if(ls.includes("epic")||ls.includes("infrastructure"))return EXEC.opus;if(ls.includes("size:S")&&!ls.includes("bug"))return EXEC.codex;if(["test","lint","fix:","rename","format","typo","hello","cleanup","削除","アップロード","push"].some(k=>t.includes(k)))return EXEC.codex;return EXEC.sonnet}
+const LC={"cc":"#5e6ad2","ready":"#0d9373","needs-revision":"#eb5757","bug":"#eb5757","epic":"#9c6ade","lp-optimizer":"#26b5ce","enhancement":"#0d9373","automation":"#f2994a","infrastructure":"#5e6ad2","dividend-app":"#f2c94c","ops":"#e55c8a","skill":"#0d9373","cc-local":"#d4a017","codex":"#5e6ad2","canceled":"#94a3b8"};
+const SI=({status,sz=15})=>{const m={triage:["#eb5757","o"],backlog:["#93959f","o"],todo:["#f2994a","h"],ready:["#0d9373","f"],done:["#0d9373","c"],canceled:["#94a3b8","x"]};const[c,t]=m[status]||m.triage;if(t==="c")return<svg width={sz} height={sz} viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill={c}/><path d="M5 8l2 2 4-4" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>;if(t==="f")return<svg width={sz} height={sz} viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill={c}/><circle cx="8" cy="8" r="3" fill="#fff"/></svg>;if(t==="h")return<svg width={sz} height={sz} viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke={c} strokeWidth="1.2"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13" fill={c}/></svg>;if(t==="x")return<svg width={sz} height={sz} viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill={c}/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>;return<svg width={sz} height={sz} viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke={c} strokeWidth="1.2"/></svg>};
+const Pill=({children,color,filled})=><span style={{display:"inline-flex",alignItems:"center",gap:3,padding:"1px 7px",borderRadius:12,fontSize:10,fontWeight:500,color:filled?"#fff":(color||"#666"),background:filled?(color||"#666"):(color||"#666")+"14",whiteSpace:"nowrap",lineHeight:"18px"}}>{children}</span>;
+function RefreshRing({seconds,total,onRefresh,syncing}){const pct=seconds/total,r=10,c=2*Math.PI*r;return<div onClick={onRefresh} style={{cursor:"pointer",display:"flex",alignItems:"center",gap:6,padding:"4px 10px",borderRadius:8,background:syncing?"#0d937315":"#f7f7f8",border:"1px solid "+(syncing?"#0d937330":"#e6e6e9")}}><svg width="24" height="24" viewBox="0 0 24 24" style={{transform:"rotate(-90deg)"}}><circle cx="12" cy="12" r={r} fill="none" stroke="#eaeaed" strokeWidth="2"/><circle cx="12" cy="12" r={r} fill="none" stroke={syncing?"#0d9373":"#5e6ad2"} strokeWidth="2" strokeDasharray={c} strokeDashoffset={c*(1-pct)} strokeLinecap="round" style={{transition:"stroke-dashoffset 1s linear"}}/></svg><span style={{fontSize:11,fontWeight:500,color:syncing?"#0d9373":"#8e8ea0",minWidth:24}}>{syncing?"...":`${seconds}s`}</span></div>}
 
-const GITHUB_ISSUES_RAW = [
-  { number: 154, title: "[TEST] Issue Gate S-size PASS verification", state: "open", labels: ["cc","ready","size:S"], updated: "2026-04-02", epic: null },
-  { number: 155, title: "[TEST] Issue Gate FAIL verification", state: "open", labels: ["size:S","needs-revision"], updated: "2026-04-02", epic: null },
-  { number: 130, title: "[CC] LINE友だち追加CV → Meta CAPI v3.1 実装", state: "open", labels: ["cc","size:M"], updated: "2026-04-01", epic: null },
-  { number: 128, title: "【CC実装】Gemini API (Nano Banana Pro) 画像生成スキル構築", state: "open", labels: ["cc","skill","size:L"], updated: "2026-04-01", epic: null },
-  { number: 116, title: "ecforce API仕様書2ファイルをGitHubにアップロード", state: "open", labels: ["cc"], updated: "2026-04-01", epic: null },
-  { number: 150, title: "J-Quants Dividend Sync: ゴーストラン恒久対応 & 再有効化", state: "open", labels: ["bug","infrastructure"], updated: "2026-04-01", epic: "配当アプリ" },
-  { number: 109, title: "ClipBuddy: iOS 26 Dynamic Island常駐型クリップボード", state: "open", labels: ["enhancement"], updated: "2026-04-01", epic: null },
-  { number: 118, title: "[Epic] TEN LP Optimizer Phase 1 — 広告URL分岐A/Bテスト", state: "open", labels: ["epic","lp-optimizer"], updated: "2026-03-30", epic: "LP Optimizer" },
-  { number: 126, title: "[LP Optimizer] 初回テスト実行 — FVヒーロー画像差替テスト", state: "open", labels: ["lp-optimizer","test-execution"], updated: "2026-03-30", epic: "LP Optimizer" },
-  { number: 120, title: "[LP Optimizer] Supabaseテーブル設計・マイグレーション実行", state: "open", labels: ["lp-optimizer","supabase"], updated: "2026-03-30", epic: "LP Optimizer" },
-  { number: 122, title: "[LP Optimizer] Cloudflare Workers — トラフィック振分け", state: "open", labels: ["lp-optimizer","cloudflare-workers"], updated: "2026-03-30", epic: "LP Optimizer" },
-  { number: 125, title: "[LP Optimizer] CVRダッシュボード — テスト結果可視化", state: "open", labels: ["lp-optimizer","dashboard"], updated: "2026-03-30", epic: "LP Optimizer" },
-  { number: 124, title: "[LP Optimizer] 統計的有意差判定 + ChatWork通知", state: "open", labels: ["lp-optimizer","chatwork"], updated: "2026-03-30", epic: "LP Optimizer" },
-  { number: 123, title: "[LP Optimizer] データ同期EF — ecforce API → Supabase", state: "open", labels: ["lp-optimizer","supabase","ecforce-api"], updated: "2026-03-30", epic: "LP Optimizer" },
-  { number: 121, title: "[LP Optimizer] Playwright — ecforce管理画面自動操作", state: "open", labels: ["automation","lp-optimizer","playwright"], updated: "2026-03-30", epic: "LP Optimizer" },
-  { number: 119, title: "[LP Optimizer] 技術検証 — CSP確認・ログインテスト・疎通", state: "open", labels: ["lp-optimizer","tech-verification"], updated: "2026-03-30", epic: "LP Optimizer" },
-  { number: 113, title: "配当カレンダー Web版UI（React SPA + Supabase連携）", state: "open", labels: ["enhancement","dividend-app"], updated: "2026-03-30", epic: "配当アプリ" },
-  { number: 110, title: "REIT分配金自動取得Edge Functionの作成", state: "open", labels: ["enhancement","dividend-app"], updated: "2026-03-30", epic: "配当アプリ" },
-  { number: 107, title: "[Epic] Notion Issues Board — Linear風機能拡張", state: "open", labels: ["enhancement","ops"], updated: "2026-03-30", epic: null },
-  // recently closed
-  { number: 151, title: "Issue Gate System — ハイブリッド品質ゲート", state: "closed", labels: ["enhancement","cc","ready"], updated: "2026-04-01", epic: null },
-  { number: 138, title: "[CC] freee重複deal削除（166件）+ 自動仕訳再登録", state: "closed", labels: [], updated: "2026-04-01", epic: null },
-  { number: 143, title: "[CC] freee MCP消込機能の検証 + 正しい自動仕訳フロー確定", state: "closed", labels: [], updated: "2026-04-01", epic: null },
-  { number: 132, title: "[Setup] Codex セカンドオピニオン・レビュア導入", state: "closed", labels: ["enhancement"], updated: "2026-04-01", epic: null },
-  { number: 129, title: "GTMフォーム: LP名リスト週次自動更新", state: "closed", labels: ["gtm","automation"], updated: "2026-04-01", epic: null },
-  { number: 127, title: "保育園連絡帳 検温自動入力（Playwright + launchd）", state: "closed", labels: ["automation"], updated: "2026-04-01", epic: null },
-  { number: 108, title: "【市川さん】レギュレーションチェックシートの自動化", state: "closed", labels: ["automation"], updated: "2026-04-01", epic: null },
-  { number: 104, title: "ecforce決済エラー検知ツールをローカルから発掘してリポにpush", state: "closed", labels: [], updated: "2026-04-01", epic: null },
-  { number: 136, title: "[CC] freee未登録明細の一括自動仕訳登録（377件）", state: "closed", labels: [], updated: "2026-04-01", epic: null },
-];
+function DelegateModal({item,onClose,onAction}){const rec=recommendExec(item);const[size,setSize]=useState(item.labels?.find(l=>l.startsWith("size:"))?.slice(5)||"S");const[desc,setDesc]=useState(item.title);const[busy,setBusy]=useState(false);const exec=async(ex,model)=>{setBusy(true);await onAction("delegate-"+ex,{title:item.title,description:desc,size,model});setBusy(false);onClose()};return<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:998,display:"flex",alignItems:"center",justifyContent:"center"}}><div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:12,padding:24,width:440,maxWidth:"92vw",boxShadow:"0 8px 32px rgba(0,0,0,0.12)"}}><div style={{fontSize:14,fontWeight:600,color:"#1a1a2e",marginBottom:4}}>タスクを委譲</div><div style={{fontSize:12,color:"#8e8ea0",marginBottom:8}}>#{item.number} {item.title}</div><div style={{background:rec.bg,border:`1px solid ${rec.border}`,borderRadius:8,padding:"8px 12px",marginBottom:12,display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:16}}>{rec.icon}</span><div><div style={{fontSize:12,fontWeight:600,color:rec.color}}>推奨: {rec.label}</div><div style={{fontSize:10,color:"#8e8ea0"}}>{rec.desc}</div></div></div><textarea value={desc} onChange={e=>setDesc(e.target.value)} rows={3} style={{width:"100%",background:"#f7f7f8",border:"1px solid #e6e6e9",borderRadius:8,padding:10,fontSize:12,color:"#1a1a2e",resize:"vertical",marginBottom:12,boxSizing:"border-box",fontFamily:"inherit"}}/><div style={{display:"flex",gap:6,marginBottom:12}}>{["S","M","L"].map(s=><button key={s} onClick={()=>setSize(s)} style={{flex:1,padding:6,borderRadius:8,border:size===s?"2px solid #5e6ad2":"1px solid #e6e6e9",background:size===s?"#eff0ff":"#fff",color:size===s?"#5e6ad2":"#8e8ea0",fontSize:12,fontWeight:600,cursor:"pointer"}}>{s}</button>)}</div><div style={{display:"flex",gap:6}}>{[{ex:"cc",label:"cc-work (Opus)",bg:"#9c6ade",match:"opus"},{ex:"cc",label:"cc-work (Sonnet)",bg:"#5e6ad2",match:"sonnet"},{ex:"codex",label:"Codex",bg:"#0d9373",match:"codex"}].map(b=>{const isR=rec.key===b.match;return<button key={b.match} onClick={()=>exec(b.ex,b.match==="codex"?undefined:b.match)} disabled={busy} style={{flex:isR?1.3:1,padding:isR?12:10,borderRadius:10,border:isR?`2px solid ${b.bg}`:"1px solid #e6e6e9",background:isR?b.bg:"#fff",color:isR?"#fff":b.bg,fontSize:isR?13:12,fontWeight:600,cursor:"pointer",position:"relative"}}>{isR&&<span style={{position:"absolute",top:-8,left:"50%",transform:"translateX(-50%)",fontSize:9,background:b.bg,color:"#fff",padding:"1px 8px",borderRadius:8}}>推奨</span>}{b.label}</button>})}</div></div></div>}
 
-const TODAY = "2026-04-02";
+function IssueCard({item,stage,needsDelegate,onDelegate,doAction,onDragStart}){
+  const ls=item.labels||[];const isDone=stage==="done";const isCan=stage==="canceled";const urgent=needsDelegate&&!isDone&&!isCan;const rec=(!isDone&&!isCan)?recommendExec(item):null;const inactive=isDone||isCan;
+  const draggable=!inactive&&(stage==="triage"||stage==="backlog");
+  return<div draggable={draggable} onDragStart={e=>{if(!draggable)return;e.dataTransfer.setData("application/json",JSON.stringify({number:item.number,title:item.title,labels:ls}));e.dataTransfer.effectAllowed="move";onDragStart&&onDragStart(item)}} style={{background:urgent?"#fff8f0":inactive?"#fafafa":"#fff",borderRadius:8,padding:"12px",marginBottom:6,border:urgent?"1.5px solid #f2994a50":"1px solid #eaeaed",position:"relative",boxShadow:item.stale?"0 0 0 2px #eb575730":"none",animation:"cardIn 0.3s ease both",opacity:isCan?0.5:1,cursor:draggable?"grab":"default"}}>
+    {item.stale&&!inactive&&<div style={{position:"absolute",top:8,right:8,display:"flex",alignItems:"center",gap:3,background:"#eb575712",padding:"2px 8px",borderRadius:10}}><div style={{width:6,height:6,borderRadius:"50%",background:"#eb5757",animation:"blink 1.5s infinite"}}/><span style={{fontSize:9,fontWeight:600,color:"#eb5757"}}>{daysSince(item.updated_at)}d</span></div>}
+    {urgent&&<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}><div style={{display:"inline-flex",alignItems:"center",gap:4,background:"#f2994a18",border:"1px solid #f2994a30",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:600,color:"#f2994a"}}><svg width="10" height="10" viewBox="0 0 16 16"><path d="M8 1l7 14H1z" fill="none" stroke="#f2994a" strokeWidth="1.5"/><line x1="8" y1="6" x2="8" y2="10" stroke="#f2994a" strokeWidth="1.5" strokeLinecap="round"/><circle cx="8" cy="13" r="0.8" fill="#f2994a"/></svg>要委譲</div>{rec&&<div style={{display:"inline-flex",alignItems:"center",gap:4,background:rec.bg,border:`1px solid ${rec.border}`,borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:600,color:rec.color}}>{rec.icon} {rec.label}</div>}</div>}
+    {!urgent&&!inactive&&rec&&<div style={{display:"inline-flex",alignItems:"center",gap:4,background:rec.bg,border:`1px solid ${rec.border}`,borderRadius:6,padding:"2px 8px",marginBottom:6,fontSize:10,fontWeight:600,color:rec.color}}>{rec.icon} {rec.label}</div>}
+    {draggable&&<div style={{position:"absolute",top:12,right:10,fontSize:10,color:"#d1d1db",display:"flex",flexDirection:"column",gap:1,lineHeight:1,cursor:"grab"}}><span>⠿</span></div>}
+    <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:4}}><SI status={stage} sz={14}/><span style={{fontFamily:"monospace",fontSize:10,color:"#93959f"}}>#{item.number}</span></div>
+    <div onClick={()=>item.html_url&&window.open(item.html_url,"_blank")} style={{fontSize:12.5,fontWeight:500,lineHeight:1.4,color:isCan?"#93959f":"#1a1a2e",wordBreak:"break-word",cursor:"pointer",marginBottom:6,textDecoration:isCan?"line-through":"none",paddingRight:draggable?16:0}}>{item.title.length>65?item.title.slice(0,65)+"...":item.title}</div>
+    {ls.filter(l=>!l.startsWith("size:")&&l!=="canceled").length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:3,marginBottom:6}}>{ls.filter(l=>!l.startsWith("size:")&&l!=="canceled").slice(0,3).map(l=><Pill key={l} color={LC[l]} filled={["cc","codex","cc-local"].includes(l)}>{l}</Pill>)}</div>}
+    {!inactive&&<div style={{display:"flex",gap:4,padding:"6px 0 0",borderTop:"1px solid #f2f2f4",alignItems:"center"}}>
+      {rec&&rec.key==="opus"&&<button onClick={e=>{e.stopPropagation();doAction("delegate-cc",{title:item.title,description:item.title,size:"S",model:"opus"})}} style={{display:"flex",alignItems:"center",gap:4,background:urgent?"#9c6ade":"#f3f0ff",border:urgent?"none":"1px solid #c4b5fd",borderRadius:6,padding:urgent?"5px 10px":"4px 8px",fontSize:urgent?11:10,color:urgent?"#fff":"#9c6ade",cursor:"pointer",fontWeight:600}}>{"\u25c6"} cc-work (Opus)</button>}
+      {rec&&rec.key==="sonnet"&&<button onClick={e=>{e.stopPropagation();doAction("delegate-cc",{title:item.title,description:item.title,size:"S",model:"sonnet"})}} style={{display:"flex",alignItems:"center",gap:4,background:urgent?"#5e6ad2":"#eff0ff",border:urgent?"none":"1px solid #c7d2fe",borderRadius:6,padding:urgent?"5px 10px":"4px 8px",fontSize:urgent?11:10,color:urgent?"#fff":"#5e6ad2",cursor:"pointer",fontWeight:600}}>{"\u25c7"} cc-work (Sonnet)</button>}
+      {rec&&rec.key==="codex"&&<button onClick={e=>{e.stopPropagation();doAction("delegate-codex",{title:item.title,description:item.title,size:"S"})}} style={{display:"flex",alignItems:"center",gap:4,background:urgent?"#0d9373":"#ecfdf5",border:urgent?"none":"1px solid #a7f3d0",borderRadius:6,padding:urgent?"5px 10px":"4px 8px",fontSize:urgent?11:10,color:urgent?"#fff":"#0d9373",cursor:"pointer",fontWeight:600}}>{"\u25a1"} Codex</button>}
+      {rec&&rec.key!=="opus"&&<button onClick={e=>{e.stopPropagation();doAction("delegate-cc",{title:item.title,description:item.title,size:"S",model:"sonnet"})}} style={{background:"transparent",border:"1px solid #e6e6e9",borderRadius:6,padding:"4px 8px",fontSize:10,color:"#93959f",cursor:"pointer"}}>CC</button>}
+      {rec&&rec.key!=="codex"&&<button onClick={e=>{e.stopPropagation();doAction("delegate-codex",{title:item.title,description:item.title,size:"S"})}} style={{background:"transparent",border:"1px solid #e6e6e9",borderRadius:6,padding:"4px 8px",fontSize:10,color:"#93959f",cursor:"pointer"}}>Codex</button>}
+      <button onClick={e=>{e.stopPropagation();onDelegate(item)}} style={{background:"transparent",border:"1px solid #e6e6e9",borderRadius:6,padding:"4px 8px",fontSize:10,color:"#93959f",cursor:"pointer"}}>{"\u22ef"}</button>
+      <button onClick={e=>{e.stopPropagation();if(confirm(`#${item.number} をキャンセル？`))doAction("cancel-issue",{number:item.number})}} style={{marginLeft:"auto",background:"transparent",border:"1px solid #e6e6e9",borderRadius:6,padding:"4px 8px",fontSize:10,color:"#b4b4c0",cursor:"pointer"}}><svg width="10" height="10" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="#b4b4c0" strokeWidth="1.5" strokeLinecap="round"/></svg></button>
+    </div>}
+  </div>}
 
-// ─── Helpers ────────────────────────────────────────────────────────
-function classifyReminder(r) {
-  if (!r.due) return "backlog";
-  const d = r.due.slice(0, 10);
-  if (d < TODAY) return "overdue";
-  if (d === TODAY) return "today";
-  return "upcoming";
-}
+export default function App(){
+  const[data,setData]=useState(null);const[ld,setLd]=useState(true);const[modal,setModal]=useState(null);const[toasts,setToasts]=useState([]);const[search,setSrc]=useState("");const[epF,setEpF]=useState(null);const[countdown,setCd]=useState(60);const[syncing,setSyncing]=useState(false);const[flash,setFlash]=useState(false);const[dragOver,setDragOver]=useState(null);const[dragging,setDragging]=useState(false);
+  const toast=(text,ok=true)=>{const t={text,ok,id:Date.now()};setToasts(p=>[...p,t]);setTimeout(()=>setToasts(p=>p.filter(x=>x.id!==t.id)),3000)};
+  const fetchData=useCallback(async(sf=false)=>{setLd(true);setSyncing(true);try{setData(await(await fetch(API)).json());if(sf){setFlash(true);setTimeout(()=>setFlash(false),600)}}catch(e){toast(String(e),false)}setLd(false);setSyncing(false);setCd(60)},[]);
+  const doAction=async(action,payload)=>{try{const d=await(await fetch(ACT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,payload})})).json();if(d.ok){toast(d.issue_number?`Issue #${d.issue_number} created`:`${action} done`);setTimeout(()=>fetchData(true),500)}else toast(d.error||"Error",false)}catch(e){toast(String(e),false)}};
 
-function classifyGHIssue(i) {
-  if (i.state === "closed") return "done";
-  if (i.labels.includes("needs-revision")) return "revision";
-  if (i.labels.includes("ready")) return "ready";
-  if (i.labels.includes("epic")) return "epic";
-  return "open";
-}
+  const handleDrop=useCallback(async(targetStage,e)=>{
+    e.preventDefault();setDragOver(null);setDragging(false);
+    try{
+      const item=JSON.parse(e.dataTransfer.getData("application/json"));
+      if(targetStage==="todo"){
+        const rec=recommendExec(item);
+        toast(`#${item.number} → ${rec.label} で自動委譲中...`);
+        await doAction("delegate-"+rec.action,{title:item.title,description:item.title,model:rec.key==="codex"?undefined:(rec.key==="opus"?"opus":"sonnet"),size:item.labels?.find(l=>l.startsWith("size:"))?.slice(5)||"S"});
+      }else if(targetStage==="canceled"){
+        toast(`#${item.number} をキャンセル中...`);
+        await doAction("cancel-issue",{number:item.number});
+      }
+    }catch(err){toast("Drop error: "+err,false)}
+  },[]);
 
-const TAG_COLORS = {
-  "経営": { bg: "#1a1a2e", fg: "#e94560" },
-  "法務": { bg: "#1a1a2e", fg: "#f5a623" },
-  "薬機法": { bg: "#1a1a2e", fg: "#f5a623" },
-  "LP": { bg: "#0f3460", fg: "#53d8fb" },
-  "CRM": { bg: "#16213e", fg: "#a29bfe" },
-  "AI": { bg: "#1b1b3a", fg: "#08d9d6" },
-  "開発": { bg: "#162447", fg: "#e43f5a" },
-  "会計": { bg: "#1a1a2e", fg: "#6decb9" },
-  "投資": { bg: "#1a1a2e", fg: "#ffd369" },
-  "スタッフ": { bg: "#1a1a2e", fg: "#ff9a76" },
-  "インフラ": { bg: "#162447", fg: "#48dbfb" },
-  "ツール": { bg: "#1a1a2e", fg: "#c8d6e5" },
-  "私用": { bg: "#1a1a2e", fg: "#576574" },
-};
+  useEffect(()=>{fetchData();const iv=setInterval(()=>{setCd(p=>{if(p<=1){fetchData(true);return 60}return p-1})},1000);return()=>clearInterval(iv)},[fetchData]);
+  const issues=useMemo(()=>{if(!data)return[];return data.github_issues.filter(i=>!i.is_pr).map(x=>{const ls=typeof x.labels==="string"?JSON.parse(x.labels):x.labels;return{...x,labels:ls,stage:classify({...x,labels:ls}),stale:x.state==="open"&&daysSince(x.updated_at)>5}}).filter(i=>{if(search&&!i.title.toLowerCase().includes(search.toLowerCase()))return false;if(epF&&i.epic!==epF)return false;return true})},[data,search,epF]);
+  const grouped=useMemo(()=>{const m={};STAGES.forEach(s=>m[s.key]=[]);issues.forEach(i=>{if(m[i.stage])m[i.stage].push(i)});m.done=m.done.slice(0,10);m.canceled=m.canceled.slice(0,10);return m},[issues]);
+  const total=issues.length,closed=issues.filter(i=>i.state==="closed"&&i.stage!=="canceled").length,open=issues.filter(i=>i.state==="open").length,canceled=(grouped.canceled||[]).length;
+  const pct=(total-canceled)?Math.round(closed/(total-canceled)*100):0;const nd=(grouped.triage||[]).length+(grouped.backlog||[]).length;
+  const epics=[...new Set(issues.map(i=>i.epic).filter(Boolean))];
 
-const GH_LABEL_COLORS = {
-  "cc": "#3b82f6",
-  "ready": "#22c55e",
-  "needs-revision": "#ef4444",
-  "bug": "#dc2626",
-  "epic": "#8b5cf6",
-  "lp-optimizer": "#06b6d4",
-  "enhancement": "#10b981",
-  "automation": "#f59e0b",
-  "infrastructure": "#6366f1",
-  "dividend-app": "#eab308",
-  "ops": "#ec4899",
-  "skill": "#14b8a6",
-  "supabase": "#22c55e",
-  "cloudflare-workers": "#f97316",
-  "playwright": "#a855f7",
-  "ecforce-api": "#e11d48",
-  "chatwork": "#059669",
-  "dashboard": "#0ea5e9",
-  "test-execution": "#84cc16",
-  "tech-verification": "#7c3aed",
-  "gtm": "#d946ef",
-  "codex": "#6366f1",
-};
+  if(ld&&!data)return<div style={{background:"#f4f4f6",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"system-ui"}}><div style={{color:"#8e8ea0"}}>Loading...</div></div>;
 
-function daysAgo(dateStr) {
-  if (!dateStr) return null;
-  const d = new Date(dateStr.slice(0, 10));
-  const t = new Date(TODAY);
-  return Math.floor((t - d) / 86400000);
-}
+  return<div style={{background:"#f4f4f6",minHeight:"100vh",fontFamily:"-apple-system,'Noto Sans JP','Inter',system-ui,sans-serif",display:"flex",flexDirection:"column"}}>
+    <style>{`@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}@keyframes cardIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes flash{from{opacity:1}to{opacity:0}}@keyframes nudge{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}@keyframes dropPulse{0%,100%{box-shadow:inset 0 0 0 2px #f2994a40}50%{box-shadow:inset 0 0 0 3px #f2994a80}}@keyframes dropPulseCancel{0%,100%{box-shadow:inset 0 0 0 2px #94a3b840}50%{box-shadow:inset 0 0 0 3px #94a3b880}}`}</style>
+    {flash&&<div style={{position:"fixed",inset:0,background:"#0d937308",pointerEvents:"none",zIndex:900,animation:"flash 0.6s ease-out forwards"}}/>}
+    <div style={{position:"fixed",bottom:16,right:16,zIndex:999,display:"flex",flexDirection:"column",gap:6}}>{toasts.map(m=><div key={m.id} style={{background:m.ok?"#0d9373":"#eb5757",color:"#fff",padding:"8px 16px",borderRadius:8,fontSize:12,fontWeight:500,boxShadow:"0 2px 8px rgba(0,0,0,.15)"}}>{m.text}</div>)}</div>
+    {modal&&<DelegateModal item={modal} onClose={()=>setModal(null)} onAction={doAction}/>}
 
-// ─── Components ─────────────────────────────────────────────────────
-const Badge = ({ children, color, bg }) => (
-  <span style={{
-    display: "inline-block",
-    padding: "1px 7px",
-    borderRadius: 4,
-    fontSize: 10,
-    fontWeight: 600,
-    letterSpacing: "0.02em",
-    color: color || "#fff",
-    background: bg || "#333",
-    marginRight: 4,
-    marginBottom: 2,
-    whiteSpace: "nowrap",
-  }}>{children}</span>
-);
-
-const PriorityDot = ({ p }) => {
-  if (p === "none") return null;
-  const c = p === "high" ? "#ef4444" : p === "medium" ? "#f59e0b" : "#3b82f6";
-  return <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: c, marginRight: 6, flexShrink: 0 }} />;
-};
-
-const ReminderCard = ({ r }) => {
-  const col = classifyReminder(r);
-  const days = daysAgo(r.due);
-  const tc = TAG_COLORS[r.tag] || { bg: "#1a1a2e", fg: "#888" };
-  const isSave = r.title.startsWith("[セーブ]");
-
-  return (
-    <div style={{
-      background: "rgba(255,255,255,0.03)",
-      border: "1px solid rgba(255,255,255,0.06)",
-      borderRadius: 8,
-      padding: "10px 12px",
-      marginBottom: 8,
-      cursor: "default",
-      transition: "all 0.15s",
-      borderLeft: col === "overdue" ? "3px solid #ef4444" : col === "today" ? "3px solid #3b82f6" : "3px solid transparent",
-    }}
-    onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-    onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.transform = "translateY(0)"; }}
-    >
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 4 }}>
-        <PriorityDot p={r.priority} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 500, lineHeight: 1.45, color: "#e2e8f0", wordBreak: "break-word" }}>
-            {isSave && <span style={{ color: "#22c55e", marginRight: 4 }}>⏸</span>}
-            {r.title}
-          </div>
-          <div style={{ marginTop: 5, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 3 }}>
-            <Badge color={tc.fg} bg={tc.bg}>{r.tag}</Badge>
-            {r.due && (
-              <span style={{ fontSize: 10, color: col === "overdue" ? "#f87171" : "#64748b" }}>
-                {col === "overdue" ? `${days}日超過` : col === "today" ? "今日" : r.due.slice(5, 10)}
-              </span>
-            )}
-          </div>
+    <div style={{background:"#fff",borderBottom:"1px solid #eaeaed",padding:"12px 20px"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}><div style={{width:26,height:26,borderRadius:6,background:"linear-gradient(135deg,#5e6ad2,#9c6ade)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff"}}>T</div><span style={{fontSize:15,fontWeight:600,color:"#1a1a2e"}}>Issue pipeline</span></div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <input type="text" placeholder="Filter..." value={search} onChange={e=>setSrc(e.target.value)} style={{background:"#f7f7f8",border:"1px solid #e6e6e9",borderRadius:6,padding:"5px 12px",fontSize:12,color:"#1a1a2e",width:160,outline:"none"}}/>
+          <button onClick={async()=>{toast("Syncing...");await doAction("sync-github",{})}} style={{background:"#f7f7f8",border:"1px solid #e6e6e9",borderRadius:6,padding:"5px 10px",fontSize:11,color:"#5e6ad2",cursor:"pointer",fontWeight:500}}>🔄</button>
+          <RefreshRing seconds={countdown} total={60} onRefresh={()=>fetchData(true)} syncing={syncing}/>
         </div>
       </div>
+      {epics.length>0&&<div style={{display:"flex",gap:4,marginTop:8}}>{epics.map(ep=><button key={ep} onClick={()=>setEpF(epF===ep?null:ep)} style={{background:epF===ep?"#f3f0ff":"transparent",border:"1px solid "+(epF===ep?"#c4b5fd":"#e6e6e9"),borderRadius:6,padding:"3px 10px",fontSize:11,color:"#9c6ade",cursor:"pointer",fontWeight:epF===ep?600:400}}>📦 {ep}</button>)}{epF&&<button onClick={()=>setEpF(null)} style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:6,padding:"3px 8px",fontSize:11,color:"#eb5757",cursor:"pointer"}}>✕</button>}</div>}
     </div>
-  );
-};
 
-const GHIssueCard = ({ issue }) => {
-  const col = classifyGHIssue(issue);
-  const sizeLabel = issue.labels.find(l => l.startsWith("size:"));
+    <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8,padding:"12px 16px 4px"}}>
+      {[{l:"Total",v:total,c:"#1a1a2e"},{l:"Open",v:open,c:"#f2994a"},{l:`Done (${pct}%)`,v:closed,c:"#0d9373"},{l:"要委譲",v:nd,c:nd?"#f2994a":"#93959f",bg:nd?"#fff8f0":undefined},{l:"Canceled",v:canceled,c:"#94a3b8"}].map(m=><div key={m.l} style={{background:m.bg||"#fff",borderRadius:8,padding:"10px 14px",border:"1px solid #eaeaed",animation:m.v>0&&m.l==="要委譲"?"nudge 3s ease infinite":"none"}}><div style={{fontSize:11,color:"#8e8ea0"}}>{m.l}</div><div style={{fontSize:22,fontWeight:500,color:m.c}}>{m.v}</div></div>)}
+    </div>
+    <div style={{padding:"4px 16px 4px",display:"flex",alignItems:"center",gap:10}}><div style={{flex:1,height:8,background:"#eaeaed",borderRadius:4,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",background:"linear-gradient(90deg,#0d9373,#26b5ce)",borderRadius:4,transition:"width 0.8s ease"}}/></div><span style={{fontSize:12,fontWeight:600,color:"#1a1a2e"}}>{pct}%</span></div>
+    <div style={{padding:"0 16px 8px",display:"flex",gap:12,fontSize:11}}>{Object.values(EXEC).map(e=><span key={e.key} style={{display:"flex",alignItems:"center",gap:4,color:e.color,fontWeight:500}}><span style={{background:e.bg,border:`1px solid ${e.border}`,borderRadius:4,padding:"1px 6px",fontSize:10}}>{e.icon} {e.label}</span>{e.desc}</span>)}</div>
+    {/* Drag hint */}
+    {dragging&&<div style={{padding:"0 16px 8px",fontSize:11,color:"#f2994a",fontWeight:500,display:"flex",alignItems:"center",gap:6}}>
+      <svg width="14" height="14" viewBox="0 0 16 16"><path d="M2 8h12M10 4l4 4-4 4" stroke="#f2994a" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>
+      Todoにドロップ → AI推奨で自動委譲 ｜ Canceledにドロップ → キャンセル
+    </div>}
 
-  return (
-    <div style={{
-      background: "rgba(255,255,255,0.03)",
-      border: "1px solid rgba(255,255,255,0.06)",
-      borderRadius: 8,
-      padding: "10px 12px",
-      marginBottom: 8,
-      cursor: "default",
-      transition: "all 0.15s",
-      borderLeft: col === "done" ? "3px solid #22c55e" : col === "revision" ? "3px solid #ef4444" : col === "ready" ? "3px solid #3b82f6" : "3px solid transparent",
-      opacity: col === "done" ? 0.6 : 1,
-    }}
-    onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-    onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.transform = "translateY(0)"; }}
-    >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 500, lineHeight: 1.45, color: "#e2e8f0", wordBreak: "break-word" }}>
-            <span style={{ color: "#64748b", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginRight: 5 }}>#{issue.number}</span>
-            {issue.title}
-          </div>
-          <div style={{ marginTop: 5, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 3 }}>
-            {issue.labels.filter(l => !l.startsWith("size:")).slice(0, 3).map(l => (
-              <Badge key={l} bg={GH_LABEL_COLORS[l] ? `${GH_LABEL_COLORS[l]}22` : "#333"} color={GH_LABEL_COLORS[l] || "#888"}>{l}</Badge>
-            ))}
-            {sizeLabel && <Badge bg="#1e293b" color="#94a3b8">{sizeLabel}</Badge>}
-            {issue.epic && <span style={{ fontSize: 10, color: "#8b5cf6" }}>📦 {issue.epic}</span>}
+    <div style={{display:"flex",gap:2,padding:"0 8px 12px",overflowX:"auto",flex:1,alignItems:"flex-start"}}>
+      {STAGES.map((s,idx)=>{
+        const items=grouped[s.key]||[];const isND=s.nd&&items.length>0;const isCan=s.key==="canceled";const isDrop=s.dropTarget;const isOver=dragOver===s.key;
+        return<div key={s.key} style={{display:"flex",alignItems:"flex-start"}}>
+          {idx>0&&<div style={{display:"flex",alignItems:"center",justifyContent:"center",width:isCan?12:20,minHeight:80}}><svg width={isCan?"12":"20"} height="30" viewBox={isCan?"0 0 12 30":"0 0 20 30"}><path d={isCan?"M0 15h12":"M0 15h20"} stroke="#d1d1db" strokeWidth="1"/>{!isCan&&<path d="M15 10l5 5-5 5" stroke="#d1d1db" strokeWidth="1" fill="none"/>}</svg></div>}
+          <div
+            onDragOver={e=>{if(isDrop){e.preventDefault();e.dataTransfer.dropEffect="move";setDragOver(s.key)}}}
+            onDragEnter={e=>{if(isDrop){e.preventDefault();setDragOver(s.key)}}}
+            onDragLeave={()=>{if(dragOver===s.key)setDragOver(null)}}
+            onDrop={e=>isDrop&&handleDrop(s.key,e)}
+            style={{flex:"1 1 220px",minWidth:isCan?160:220,maxWidth:isCan?220:340,
+              background:isOver?(s.key==="canceled"?"#f0f0f3":"#fff3e6"):isND?"#fff8f0":isCan?"#f9f9fa":s.color+"06",
+              borderRadius:10,
+              border:isOver?(s.key==="canceled"?"2px dashed #94a3b8":"2px dashed #f2994a"):isND?`2px solid #f2994a40`:isCan?"1px dashed #d1d1db":`1px solid ${s.color}18`,
+              overflow:"hidden",transition:"all 0.2s",
+              animation:isOver?(s.key==="canceled"?"dropPulseCancel 1s infinite":"dropPulse 1s infinite"):"none"}}>
+            <div style={{padding:"10px 12px",borderBottom:isND?`1px solid #f2994a20`:isCan?"1px dashed #d1d1db":`1px solid ${s.color}18`,display:"flex",alignItems:"center",gap:6}}>
+              <SI status={s.key}/><span style={{fontSize:13,fontWeight:600,color:s.color}}>{s.label}</span>
+              <span style={{background:s.color+"18",color:s.color,fontSize:11,fontWeight:700,borderRadius:10,padding:"1px 8px"}}>{items.length}</span>
+              {isND&&<span style={{marginLeft:"auto",fontSize:10,fontWeight:600,color:"#f2994a",background:"#f2994a18",padding:"2px 8px",borderRadius:10,animation:"blink 2s infinite"}}>要委譲</span>}
+              {isDrop&&dragging&&<span style={{marginLeft:isND?0:"auto",fontSize:10,color:isCan?"#94a3b8":"#f2994a",fontWeight:600}}>⬇ Drop</span>}
+            </div>
+            <div style={{maxHeight:600,overflowY:"auto",padding:"6px",minHeight:isDrop&&dragging?80:0}}>
+              {items.map(it=><IssueCard key={it.number} item={it} stage={s.key} needsDelegate={s.nd} onDelegate={setModal} doAction={doAction} onDragStart={()=>setDragging(true)}/>)}
+              {items.length===0&&<div style={{padding:isDrop&&dragging?30:16,textAlign:"center",fontSize:11,color:"#b4b4c0"}}>{isDrop&&dragging?"ここにドロップ":isCan?"No canceled":"Empty"}</div>}
+            </div>
           </div>
         </div>
-        <span style={{ fontSize: 10, color: "#475569", whiteSpace: "nowrap", flexShrink: 0 }}>{issue.updated.slice(5)}</span>
-      </div>
+      })}
     </div>
-  );
-};
 
-const Column = ({ title, icon, count, accent, children, collapsed, onToggle }) => (
-  <div style={{
-    flex: collapsed ? "0 0 44px" : "1 1 260px",
-    minWidth: collapsed ? 44 : 240,
-    maxWidth: collapsed ? 44 : 380,
-    background: "rgba(255,255,255,0.015)",
-    borderRadius: 12,
-    border: "1px solid rgba(255,255,255,0.05)",
-    display: "flex",
-    flexDirection: "column",
-    overflow: "hidden",
-    transition: "all 0.3s ease",
-  }}>
-    <div
-      onClick={onToggle}
-      style={{
-        padding: collapsed ? "14px 8px" : "12px 14px",
-        display: "flex",
-        alignItems: collapsed ? "center" : "center",
-        justifyContent: collapsed ? "center" : "space-between",
-        flexDirection: collapsed ? "column" : "row",
-        gap: collapsed ? 8 : 0,
-        cursor: "pointer",
-        borderBottom: collapsed ? "none" : "1px solid rgba(255,255,255,0.04)",
-        userSelect: "none",
-      }}
-    >
-      {collapsed ? (
-        <>
-          <span style={{ fontSize: 16 }}>{icon}</span>
-          <span style={{
-            writingMode: "vertical-rl",
-            textOrientation: "mixed",
-            fontSize: 11,
-            fontWeight: 600,
-            color: accent,
-            letterSpacing: "0.05em",
-          }}>{title}</span>
-          <span style={{
-            background: accent + "22",
-            color: accent,
-            fontSize: 10,
-            fontWeight: 700,
-            borderRadius: "50%",
-            width: 22,
-            height: 22,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}>{count}</span>
-        </>
-      ) : (
-        <>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 14 }}>{icon}</span>
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: accent, letterSpacing: "0.03em", textTransform: "uppercase" }}>{title}</span>
-          </div>
-          <span style={{
-            background: accent + "18",
-            color: accent,
-            fontSize: 11,
-            fontWeight: 700,
-            borderRadius: 6,
-            padding: "2px 8px",
-            minWidth: 24,
-            textAlign: "center",
-          }}>{count}</span>
-        </>
-      )}
+    <div style={{padding:"6px 16px",borderTop:"1px solid #eaeaed",background:"#fff",display:"flex",justifyContent:"space-between",fontSize:10,color:"#b4b4c0",flexWrap:"wrap",gap:6}}>
+      <div style={{display:"flex",gap:8}}>{STAGES.map(s=><span key={s.key} style={{display:"flex",alignItems:"center",gap:3}}><SI status={s.key} sz={10}/>{s.label}</span>)}</div>
+      <span>Drag: Triage/Backlog → Todo(自動委譲) or Canceled ｜ Updated {data?.synced_at?new Date(data.synced_at).toLocaleTimeString("ja-JP"):"—"}</span>
     </div>
-    {!collapsed && (
-      <div style={{ padding: "8px 10px", overflowY: "auto", flex: 1 }}>
-        {children}
-      </div>
-    )}
   </div>
-);
-
-// ─── Main ───────────────────────────────────────────────────────────
-export default function KanbanDashboard() {
-  const [view, setView] = useState("all"); // all | reminders | github
-  const [tagFilter, setTagFilter] = useState(null);
-  const [epicFilter, setEpicFilter] = useState(null);
-  const [collapsed, setCollapsed] = useState({});
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const toggleCol = (key) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
-
-  // Classify
-  const reminders = useMemo(() => {
-    let items = REMINDERS_RAW.map(r => ({ ...r, col: classifyReminder(r) }));
-    if (tagFilter) items = items.filter(r => r.tag === tagFilter);
-    if (searchQuery) items = items.filter(r => r.title.toLowerCase().includes(searchQuery.toLowerCase()));
-    return items;
-  }, [tagFilter, searchQuery]);
-
-  const ghIssues = useMemo(() => {
-    let items = GITHUB_ISSUES_RAW.map(i => ({ ...i, col: classifyGHIssue(i) }));
-    if (epicFilter) items = items.filter(i => i.epic === epicFilter);
-    if (searchQuery) items = items.filter(i => i.title.toLowerCase().includes(searchQuery.toLowerCase()));
-    return items;
-  }, [epicFilter, searchQuery]);
-
-  const overdue = reminders.filter(r => r.col === "overdue");
-  const today = reminders.filter(r => r.col === "today");
-  const upcoming = reminders.filter(r => r.col === "upcoming");
-  const backlog = reminders.filter(r => r.col === "backlog");
-
-  const ghReady = ghIssues.filter(i => i.col === "ready");
-  const ghRevision = ghIssues.filter(i => i.col === "revision");
-  const ghEpic = ghIssues.filter(i => i.col === "epic");
-  const ghOpen = ghIssues.filter(i => i.col === "open");
-  const ghDone = ghIssues.filter(i => i.col === "done");
-
-  const allTags = [...new Set(REMINDERS_RAW.map(r => r.tag))].sort();
-  const allEpics = [...new Set(GITHUB_ISSUES_RAW.filter(i => i.epic).map(i => i.epic))];
-
-  // Stats
-  const totalReminders = REMINDERS_RAW.length;
-  const totalGH = GITHUB_ISSUES_RAW.filter(i => i.state === "open").length;
-  const closedRecent = GITHUB_ISSUES_RAW.filter(i => i.state === "closed").length;
-
-  return (
-    <div style={{
-      background: "#0a0a0f",
-      color: "#e2e8f0",
-      minHeight: "100vh",
-      fontFamily: "'DM Sans', 'Noto Sans JP', system-ui, sans-serif",
-      display: "flex",
-      flexDirection: "column",
-    }}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
-
-      {/* Header */}
-      <div style={{
-        padding: "16px 20px",
-        borderBottom: "1px solid rgba(255,255,255,0.05)",
-        background: "rgba(255,255,255,0.01)",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 10,
-              background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 18, fontWeight: 700, color: "#fff",
-            }}>T</div>
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#f1f5f9", letterSpacing: "-0.01em" }}>TEN Kanban</div>
-              <div style={{ fontSize: 10, color: "#64748b", marginTop: 1 }}>Reminders + GitHub Issues</div>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            {/* Stats */}
-            <div style={{ display: "flex", gap: 12, marginRight: 8 }}>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#f87171" }}>{overdue.length}</div>
-                <div style={{ fontSize: 9, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>超過</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#3b82f6" }}>{today.length}</div>
-                <div style={{ fontSize: 9, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>今日</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#22c55e" }}>{closedRecent}</div>
-                <div style={{ fontSize: 9, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>完了</div>
-              </div>
-            </div>
-
-            {/* Search */}
-            <input
-              type="text"
-              placeholder="検索..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              style={{
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 8,
-                padding: "6px 12px",
-                fontSize: 12,
-                color: "#e2e8f0",
-                width: 160,
-                outline: "none",
-              }}
-            />
-          </div>
-        </div>
-
-        {/* View tabs + Filters */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-          {[
-            { key: "all", label: "すべて", icon: "📋" },
-            { key: "reminders", label: "Reminders", icon: "🍎" },
-            { key: "github", label: "GitHub", icon: "🐙" },
-          ].map(t => (
-            <button key={t.key} onClick={() => { setView(t.key); setTagFilter(null); setEpicFilter(null); }} style={{
-              background: view === t.key ? "rgba(59,130,246,0.15)" : "rgba(255,255,255,0.03)",
-              border: view === t.key ? "1px solid rgba(59,130,246,0.3)" : "1px solid rgba(255,255,255,0.06)",
-              borderRadius: 8,
-              padding: "5px 12px",
-              fontSize: 11.5,
-              fontWeight: 600,
-              color: view === t.key ? "#60a5fa" : "#94a3b8",
-              cursor: "pointer",
-              transition: "all 0.15s",
-            }}>{t.icon} {t.label}</button>
-          ))}
-
-          <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.06)", margin: "0 4px" }} />
-
-          {(view === "all" || view === "reminders") && (
-            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-              {tagFilter && (
-                <button onClick={() => setTagFilter(null)} style={{
-                  background: "rgba(239,68,68,0.1)",
-                  border: "1px solid rgba(239,68,68,0.2)",
-                  borderRadius: 6, padding: "3px 8px", fontSize: 10, color: "#f87171", cursor: "pointer",
-                }}>✕ {tagFilter}</button>
-              )}
-              {!tagFilter && allTags.slice(0, 8).map(tag => {
-                const tc = TAG_COLORS[tag] || {};
-                return (
-                  <button key={tag} onClick={() => setTagFilter(tag)} style={{
-                    background: "rgba(255,255,255,0.02)",
-                    border: "1px solid rgba(255,255,255,0.05)",
-                    borderRadius: 6, padding: "2px 7px", fontSize: 10, color: tc.fg || "#888", cursor: "pointer",
-                    transition: "all 0.1s",
-                  }}>{tag}</button>
-                );
-              })}
-            </div>
-          )}
-
-          {(view === "all" || view === "github") && (
-            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-              {epicFilter && (
-                <button onClick={() => setEpicFilter(null)} style={{
-                  background: "rgba(139,92,246,0.1)",
-                  border: "1px solid rgba(139,92,246,0.2)",
-                  borderRadius: 6, padding: "3px 8px", fontSize: 10, color: "#a78bfa", cursor: "pointer",
-                }}>✕ {epicFilter}</button>
-              )}
-              {!epicFilter && allEpics.map(ep => (
-                <button key={ep} onClick={() => setEpicFilter(ep)} style={{
-                  background: "rgba(139,92,246,0.08)",
-                  border: "1px solid rgba(139,92,246,0.15)",
-                  borderRadius: 6, padding: "2px 7px", fontSize: 10, color: "#a78bfa", cursor: "pointer",
-                }}>📦 {ep}</button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Kanban Board */}
-      <div style={{
-        flex: 1,
-        display: "flex",
-        gap: 10,
-        padding: "12px 12px",
-        overflowX: "auto",
-        alignItems: "stretch",
-      }}>
-        {/* Reminder columns */}
-        {(view === "all" || view === "reminders") && (
-          <>
-            <Column title="期限超過" icon="🔴" count={overdue.length} accent="#ef4444" collapsed={collapsed.overdue} onToggle={() => toggleCol("overdue")}>
-              {overdue.map(r => <ReminderCard key={r.id} r={r} />)}
-            </Column>
-            <Column title="今日" icon="📅" count={today.length} accent="#3b82f6" collapsed={collapsed.today} onToggle={() => toggleCol("today")}>
-              {today.map(r => <ReminderCard key={r.id} r={r} />)}
-              {upcoming.length > 0 && (
-                <div style={{ padding: "8px 0 4px", fontSize: 10, color: "#475569", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                  直近 ({upcoming.length})
-                </div>
-              )}
-              {upcoming.map(r => <ReminderCard key={r.id} r={r} />)}
-            </Column>
-            <Column title="バックログ" icon="📋" count={backlog.length} accent="#64748b" collapsed={collapsed.backlog} onToggle={() => toggleCol("backlog")}>
-              {backlog.map(r => <ReminderCard key={r.id} r={r} />)}
-            </Column>
-          </>
-        )}
-
-        {/* Divider */}
-        {view === "all" && (
-          <div style={{ width: 2, background: "linear-gradient(to bottom, transparent, rgba(139,92,246,0.2), transparent)", flexShrink: 0, borderRadius: 2 }} />
-        )}
-
-        {/* GitHub columns */}
-        {(view === "all" || view === "github") && (
-          <>
-            <Column title="Ready" icon="🟢" count={ghReady.length} accent="#22c55e" collapsed={collapsed.ready} onToggle={() => toggleCol("ready")}>
-              {ghReady.map(i => <GHIssueCard key={i.number} issue={i} />)}
-            </Column>
-            <Column title="Open" icon="🟡" count={ghOpen.length + ghEpic.length} accent="#f59e0b" collapsed={collapsed.open} onToggle={() => toggleCol("open")}>
-              {ghEpic.map(i => <GHIssueCard key={i.number} issue={i} />)}
-              {ghOpen.map(i => <GHIssueCard key={i.number} issue={i} />)}
-            </Column>
-            {ghRevision.length > 0 && (
-              <Column title="要修正" icon="🔴" count={ghRevision.length} accent="#ef4444" collapsed={collapsed.revision} onToggle={() => toggleCol("revision")}>
-                {ghRevision.map(i => <GHIssueCard key={i.number} issue={i} />)}
-              </Column>
-            )}
-            <Column title="完了" icon="✅" count={ghDone.length} accent="#22c55e" collapsed={collapsed.done} onToggle={() => toggleCol("done")}>
-              {ghDone.map(i => <GHIssueCard key={i.number} issue={i} />)}
-            </Column>
-          </>
-        )}
-      </div>
-
-      {/* Footer */}
-      <div style={{
-        padding: "8px 20px",
-        borderTop: "1px solid rgba(255,255,255,0.04)",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        fontSize: 10,
-        color: "#475569",
-      }}>
-        <span>🍎 {totalReminders} reminders · 🐙 {totalGH} open issues · ✅ {closedRecent} closed</span>
-        <span>Last sync: {TODAY} — Claude.aiで「カンバン更新」と言えば最新データに更新</span>
-      </div>
-    </div>
-  );
 }
