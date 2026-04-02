@@ -44,24 +44,31 @@ function IssueCard({item,stage,needsDelegate,onDelegate,doAction,onDragStart}){
   </div>}
 
 export default function App(){
-  const[data,setData]=useState(null);const[ld,setLd]=useState(true);const[modal,setModal]=useState(null);const[toasts,setToasts]=useState([]);const[search,setSrc]=useState("");const[epF,setEpF]=useState(null);const[countdown,setCd]=useState(60);const[syncing,setSyncing]=useState(false);const[flash,setFlash]=useState(false);const[dragOver,setDragOver]=useState(null);const[dragging,setDragging]=useState(false);
+  const[data,setData]=useState(null);const[ld,setLd]=useState(true);const[modal,setModal]=useState(null);const[toasts,setToasts]=useState([]);const[search,setSrc]=useState("");const[epF,setEpF]=useState(null);const[countdown,setCd]=useState(60);const[syncing,setSyncing]=useState(false);const[flash,setFlash]=useState(false);const[dragOver,setDragOver]=useState(null);const[dragging,setDragging]=useState(false);const dropBusyRef=useRef(false);
   const toast=(text,ok=true)=>{const t={text,ok,id:Date.now()};setToasts(p=>[...p,t]);setTimeout(()=>setToasts(p=>p.filter(x=>x.id!==t.id)),3000)};
   const fetchData=useCallback(async(sf=false)=>{setLd(true);setSyncing(true);try{setData(await(await fetch(API)).json());if(sf){setFlash(true);setTimeout(()=>setFlash(false),600)}}catch(e){toast(String(e),false)}setLd(false);setSyncing(false);setCd(60)},[]);
   const doAction=async(action,payload)=>{try{const d=await(await fetch(ACT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,payload})})).json();if(d.ok){toast(d.issue_number?`Issue #${d.issue_number} created`:`${action} done`);setTimeout(()=>fetchData(true),500)}else toast(d.error||"Error",false)}catch(e){toast(String(e),false)}};
 
   const handleDrop=useCallback(async(targetStage,e)=>{
-    e.preventDefault();setDragOver(null);setDragging(false);
+    e.preventDefault();e.stopPropagation();setDragOver(null);setDragging(false);
+    if(dropBusyRef.current)return;
+    dropBusyRef.current=true;
     try{
-      const item=JSON.parse(e.dataTransfer.getData("application/json"));
+      const raw=e.dataTransfer.getData("application/json");
+      if(!raw){dropBusyRef.current=false;return}
+      const item=JSON.parse(raw);
       if(targetStage==="todo"){
         const rec=recommendExec(item);
+        if(!confirm(`#${item.number} を ${rec.label} で委譲しますか？`)){dropBusyRef.current=false;return}
         toast(`#${item.number} → ${rec.label} で自動委譲中...`);
         await doAction("delegate-"+rec.action,{title:item.title,description:item.title,model:rec.key==="codex"?undefined:(rec.key==="opus"?"opus":"sonnet"),size:item.labels?.find(l=>l.startsWith("size:"))?.slice(5)||"S"});
       }else if(targetStage==="canceled"){
+        if(!confirm(`#${item.number} をキャンセルしますか？`)){dropBusyRef.current=false;return}
         toast(`#${item.number} をキャンセル中...`);
         await doAction("cancel-issue",{number:item.number});
       }
     }catch(err){toast("Drop error: "+err,false)}
+    finally{setTimeout(()=>{dropBusyRef.current=false},2000)}
   },[]);
 
   useEffect(()=>{fetchData();const iv=setInterval(()=>{setCd(p=>{if(p<=1){fetchData(true);return 60}return p-1})},1000);return()=>clearInterval(iv)},[fetchData]);
